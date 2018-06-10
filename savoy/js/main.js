@@ -1,5 +1,6 @@
 var camera, scene, renderer, controls;
 var objects = [];
+var collmeshList = [];
 var raycaster;
 var blocker = document.getElementById( 'blocker' );
 var instructions = document.getElementById( 'instructions' );
@@ -77,10 +78,12 @@ function init() {
 			case 68: // d
 				moveRight = true;
 				break;
+			/*
 			case 32: // space
 				if ( canJump === true ) velocity.y += 350;
 				canJump = false;
 				break;
+			*/
 		}
 	};
 	var onKeyUp = function ( event ) {
@@ -173,11 +176,13 @@ function init() {
 			sideWalls.position.z =  1000;
 			scene.add( sideWalls );
 			objects.push( sideWalls );
+			collmeshList.push(sideWalls);
 		}
 		if(i == 1){
 			sideWalls.position.z =  -1000;
 			scene.add( sideWalls );
 			objects.push( sideWalls );
+			collmeshList.push(sideWalls);
 		}
 		if(i == 2){
 			var sideWallsGeometry = new THREE.BoxBufferGeometry(40, 40, 2000);
@@ -187,17 +192,16 @@ function init() {
 			sideWalls.position.z =  0;
 			scene.add( sideWalls );
 			objects.push( sideWalls );
+			collmeshList.push(sideWalls);
 		}
 		if(i == 3){
 			sideWalls.position.x =  -1000;
 			sideWalls.position.z =  0;
 			scene.add( sideWalls );
 			objects.push( sideWalls );
+			collmeshList.push(sideWalls);
 		}
 	}
-
-
-
 
 	//
 	renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -229,8 +233,8 @@ function animate() {
 		//velocity.x -= velocity.x * 1.0 * delta; //velocidade
 		//velocity.z -= velocity.z * 1.0 * delta; //velocidade
 
-		velocity.x = 10;
-		velocity.z = 10;
+		velocity.x = 5;
+		velocity.z = 5;
 
 		velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
 		direction.z = Number( moveForward ) - Number( moveBackward );
@@ -253,7 +257,7 @@ function animate() {
 			canJump = true;
 		}
 
-
+		/*
 		if(controls.getObject().position.x +25 >= 1000 || controls.getObject().position.x - 25 <= -1000){
 			moveForward = false;
 			moveBackward = false;
@@ -262,7 +266,9 @@ function animate() {
 			moveLeft = false;
 			moveRight = false;
 		}
+		*/
 
+		collisionDetection(controls, collmeshList);
 
 		if(moveForward == false && moveBackward == false) velocity.z = 0;
 		if(moveLeft == false && moveRight == false) velocity.x = 0;
@@ -273,13 +279,63 @@ function animate() {
 		//controls.getObject().translateZ( velocity.z * delta );
 		controls.getObject().translateZ( velocity.z );
 
+		
+		
 
 		if ( controls.getObject().position.y < 10 ) {//controle de pulo
 			velocity.y = 0;
 			controls.getObject().position.y = 10;
 			canJump = true;
-		}
+		}		
+
+		
 		prevTime = time;
 	}
 	renderer.render( scene, camera );
 }
+
+var collisionDetection = function(controls, collmeshList) {
+
+    function bounceBack(position, ray) {
+        position.x -= ray.bounceDistance.x;
+        position.y -= ray.bounceDistance.y;
+        position.z -= ray.bounceDistance.z;
+    }
+
+    var rays = [
+        //   Time    Degrees      words
+        new THREE.Vector3(0, 0, 5),  // 0 12:00,   0 degrees,  deep
+        new THREE.Vector3(5, 0, 5),  // 1  1:30,  45 degrees,  right deep
+        new THREE.Vector3(5, 0, 0),  // 2  3:00,  90 degress,  right
+        new THREE.Vector3(5, 0, -5), // 3  4:30, 135 degrees,  right near
+        new THREE.Vector3(0, 0, -5), // 4  6:00  180 degress,  near
+        new THREE.Vector3(-5, 0, -5),// 5  7:30  225 degrees,  left near
+        new THREE.Vector3(-5, 0, 0), // 6  9:00  270 degrees,  left
+        new THREE.Vector3(-5, 0, 5)  // 7 11:30  315 degrees,  left deep
+    ];
+
+    var position = controls.getObject().position;
+    var rayHits = [];
+    for (var index = 0; index < rays.length; index += 1) {
+
+        // Set bounce distance for each vector
+        var bounceSize = 1;		
+        rays[index].bounceDistance = {
+            x: rays[index].x * bounceSize,
+            y: rays[index].y * bounceSize,
+            z: rays[index].z * bounceSize
+        };
+
+        raycaster.set(position, rays[index]);
+
+        var intersections = raycaster.intersectObjects(collmeshList);
+
+        if (intersections.length > 0 && intersections[0].distance <= 10) {
+			console.log(intersections[0].distance);
+            controls.isOnObject = true;			
+            bounceBack(position, rays[index]);
+        }
+    }
+
+    return false;
+};
